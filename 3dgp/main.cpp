@@ -20,6 +20,7 @@ C3dglModel street;
 C3dglModel Aj;			// the boy's name is Aj
 C3dglModel idle, run;	// additional animations (skinless)
 
+C3dglSkyBox skybox;
 
 // GLSL Objects (Shader Program)
 C3dglProgram program;
@@ -79,6 +80,10 @@ bool init()
 	Aj.loadAnimations(&idle);	// Aj model has no animations
 	Aj.loadAnimations(&run);	// but can load them from idle and run
 
+	//skybox load
+	if (!skybox.load("models\\TropicalSunnyDay\\TropicalSunnyDayFront1024.jpg", "models\\TropicalSunnyDay\\TropicalSunnyDayLeft1024.jpg", "models\\TropicalSunnyDay\\TropicalSunnyDayBack1024.jpg",
+		"models\\TropicalSunnyDay\\TropicalSunnyDayRight1024.jpg", "models\\TropicalSunnyDay\\TropicalSunnyDayUp1024.jpg", "models\\TropicalSunnyDay\\TropicalSunnyDayDown1024.jpg")) return false;
+
 	// Send the texture info to the shaders
 	program.sendUniform("texture0", 0);
 
@@ -120,12 +125,18 @@ void renderScene(mat4& matrixView, float time, float deltaTime)
 	// Camera position
 	vec3 pos = getPos(matrixView);
 
+	int ZIntDiv94 = (int)pos.z / 94;
+
 	// render the street
 	program.sendUniform("lightAmbient.color", vec3(0.4, 0.4, 0.4));
 	m = matrixView;
-	m = translate(m, vec3(0, -0.07, 47));	// 47 is half of the depth of the town tile
-	street.render(m);
-
+	m = translate(m, vec3(0, -0.07, (ZIntDiv94 * 94) + 47));	// 47 is half of the depth of the town tile
+	for (int i = 0; i < 8; i++)
+	{
+		street.render(m);
+		m = translate(m, vec3(0, 0, 94));
+	}
+	
 	// Diagnostic strings
 	print(0, 0, std::format("Camera position: ({:.2f}, {:.2f}, {:.2f})", pos.x, pos.y, pos.z));
 	print(0, 20, std::format("Velocity: {:.2f}", _vel.z));
@@ -134,6 +145,8 @@ void renderScene(mat4& matrixView, float time, float deltaTime)
 
 void onRender()
 {
+	mat4 m;
+
 	// these variables control time & animation
 	static float prev = 0;
 	float time = glutGet(GLUT_ELAPSED_TIME) * 0.001f;	// time since start in seconds
@@ -149,6 +162,24 @@ void onRender()
 
 	// setup View Matrix
 	program.sendUniform("matrixView", matrixView);
+	
+	program.sendUniform("fogColour", vec3(0.96f, 0.96f, 0.95f));
+	program.sendUniform("fogDensity", 0.005f);
+
+	program.sendUniform("lightAmbient.color", vec3(1.0f, 1.0f, 1.0f));
+	program.sendUniform("materialAmbient", vec3(1.0f, 1.0f, 1.0f));
+	program.sendUniform("materialDiffuse", vec3(0.0f, 0.0f, 0.0f));
+
+	//skybox needs to be first object rendered in scene
+	m = matrixView;
+	skybox.render(m);
+
+	program.sendUniform("lightAmbient.color", vec3(0.4f, 0.4f, 0.4f)); //revert
+
+	m = matrixView;
+	m = translate(m, vec3(0.0f, 0.0f, 2.0f));
+	m = scale(m, vec3(0.01f, 0.01f, 0.01f));
+	Aj.render(m);
 
 	// render the scene objects
 	renderScene(matrixView, time, deltaTime);
