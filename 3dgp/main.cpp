@@ -18,7 +18,7 @@ using namespace glm;
 C3dglModel street;
 
 C3dglModel Aj;			// the boy's name is Aj
-C3dglModel idle, run;	// additional animations (skinless)
+C3dglModel idle,walk, run;	// additional animations (skinless)
 
 C3dglSkyBox skybox;
 
@@ -73,12 +73,15 @@ bool init()
 	street.loadMaterials("models\\street\\");
 
 	idle.load("models\\idle.fbx");
+	walk.load("models\\walk.fbx");
 	run.load("models\\run.fbx");
 
 	Aj.load("models\\Aj.fbx");
 	Aj.loadMaterials("models\\");
 	Aj.loadAnimations(&idle);	// Aj model has no animations
+	Aj.loadAnimations(&walk);
 	Aj.loadAnimations(&run);	// but can load them from idle and run
+	
 
 	//skybox load
 	if (!skybox.load("models\\TropicalSunnyDay\\TropicalSunnyDayFront1024.jpg", "models\\TropicalSunnyDay\\TropicalSunnyDayLeft1024.jpg", "models\\TropicalSunnyDay\\TropicalSunnyDayBack1024.jpg",
@@ -175,9 +178,30 @@ void onRender()
 	skybox.render(m);
 
 	program.sendUniform("lightAmbient.color", vec3(0.4f, 0.4f, 0.4f)); //revert
+	
+	float blendFactor = glm::min((_vel.z / 4.f), 2.f);
+	std::vector<mat4> transforms;
+	Aj.getAnimData(0, time, transforms);
+	std::vector<mat4> idleMatrix = transforms;
+	Aj.getAnimData(1, time, transforms);
+	std::vector<mat4> walkingMatrix = transforms;
+	Aj.getAnimData(2, time, transforms);
+	std::vector<mat4> runningMatrix = transforms;
+	for (int i = 0; i < transforms.size(); i++)
+	{
+		if (blendFactor > 1)
+		{
+			transforms[i] = (2 - blendFactor) * walkingMatrix[i] + (blendFactor - 1) * runningMatrix[i];
+		}
+		else
+		{
+			transforms[i] = (1 - blendFactor) * idleMatrix[i] + blendFactor * walkingMatrix[i];
+		}
+	}
+	program.sendUniform("bones", &transforms[0], transforms.size());
 
 	m = matrixView;
-	m = translate(m, vec3(0.0f, 0.0f, 2.0f));
+	m = translate(m, vec3(0.0f, 0.0f, getPos(matrixView).z + 2.0f));
 	m = scale(m, vec3(0.01f, 0.01f, 0.01f));
 	Aj.render(m);
 
